@@ -1,0 +1,405 @@
+body, html {
+    margin: 0;
+    padding: 0;
+    width: 100vw;
+    height: 100dvh; /* Dynamic Viewport: Ignora la barra del navegador */
+    overflow: hidden;
+    position: fixed; /* Ancla la app a la pantalla, cero saltos */
+    font-family: Arial, sans-serif;
+    
+    /* Bloquea que el texto se ponga azul al intentar girar el mapa */
+    user-select: none; 
+    -webkit-user-select: none;
+    -moz-user-select: none;
+}
+
+/* Reactiva la selección solo para poder escribir en los formularios y buscador */
+input, textarea, select {
+    user-select: auto;
+    -webkit-user-select: auto;
+    -moz-user-select: auto;
+}
+
+#panel-formulario {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    z-index: 1000; /* Asegura que flote sobre el mapa */
+    width: 250px;
+    display: none; /* Inicia oculto */
+    flex-direction: column;
+    gap: 10px;
+}
+
+#panel-formulario label {
+    font-size: 14px;
+    font-weight: bold;
+    margin-top: 5px;
+}
+
+#panel-formulario input, #panel-formulario select, #panel-formulario textarea {
+    width: 100%;
+    padding: 5px;
+    box-sizing: border-box;
+}
+
+.botones {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 15px;
+}
+
+#btn_guardar { background: #28a745; color: white; border: none; padding: 8px; cursor: pointer; border-radius: 4px;}
+#btn_cancelar { background: #dc3545; color: white; border: none; padding: 8px; cursor: pointer; border-radius: 4px;}
+
+#panel-buscador {
+    position: absolute;
+    top: 15px;
+    left: 60px;
+    z-index: 1000;
+    background: white;
+    padding: 10px;
+    border-radius: 5px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 350px;
+}
+
+#in_buscar {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    outline: none;
+    font-size: 14px;
+    box-sizing: border-box;
+}
+
+.fila-filtros {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+}
+
+#filtro_rubro {
+    flex: 1;
+    padding: 6px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+.filtro-color-caja {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    background: #f8f9fa;
+    border: 1px solid #ccc;
+    padding: 2px 5px;
+    border-radius: 4px;
+}
+#panel-perimetro {
+    position: absolute;
+    bottom: 25px;
+    left: 20px;
+    z-index: 1000;
+    background: white;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    width: 200px;
+}
+
+#panel-perimetro button {
+    width: 100%;
+    padding: 8px;
+    margin-top: 5px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+#btn_dibujar_ruta { background: #007bff; color: white; }
+#btn_guardar_perimetro { background: #28a745; color: white; margin-top: 15px; }
+
+/* Estilos para la lista de resultados del buscador */
+#lista_resultados {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    max-height: 200px;
+    overflow-y: auto;
+    background: white;
+    border-radius: 4px;
+}
+.item-resultado {
+    padding: 8px;
+    border-bottom: 1px solid #eee;
+    cursor: pointer;
+    font-size: 13px;
+}
+.item-resultado:hover {
+    background: #f0f0f0;
+}
+#btn_ultimo_visto {
+    background: #6c757d; color: white; border: none; padding: 6px; border-radius: 4px; cursor: pointer; font-size: 12px; margin-top: 5px;
+}
+
+/* =======================================================
+   PANTALLA DE INICIO DE SESIÓN
+   ======================================================= */
+#pantalla-login {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.85); /* Fondo oscuro semitransparente que oculta el mapa */
+    z-index: 9999; /* Por encima de todo absolutamente */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.caja-login {
+    background: white;
+    padding: 30px;
+    border-radius: 8px;
+    width: 280px;
+    text-align: center;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+}
+
+.input-login {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 15px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box;
+    font-size: 14px;
+}
+
+.btn-login {
+    width: 100%;
+    padding: 10px;
+    background: #007bff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 15px;
+}
+
+.btn-login:hover {
+    background: #0056b3;
+}
+
+/* =======================================================
+   PANEL DE ADMINISTRADOR (Reemplaza al panel de pruebas)
+   ======================================================= */
+#panel-admin {
+    position: absolute;
+    bottom: 25px;
+    left: 280px;
+    z-index: 1000;
+    background: #343a40; /* Color oscuro profesional */
+    color: white;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 200px;
+}
+
+#panel-admin button {
+    border: none; padding: 8px; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold;
+}
+
+/* Filtro para Modo Oscuro en color plomo neutro */
+.leaflet-tile-pane {
+    filter: invert(100%) grayscale(100%) brightness(115%) contrast(90%);
+}
+/* =======================================================
+   DISEÑO RESPONSIVO (Solo se activa en celulares) 
+   ======================================================= */
+@media screen and (max-width: 950px) {
+    
+    /* 1. Ajustar el buscador a lo ancho de la pantalla */
+    #panel-buscador {
+        left: 50px; /* Deja espacio para los botones de zoom (+/-) */
+        width: calc(100% - 70px); /* Ocupa el resto de la pantalla automáticamente */
+        max-width: 350px;
+        padding: 10px;
+    }
+    
+    /* 2. Apilar los filtros uno sobre otro para que no se salgan del borde */
+    .fila-filtros {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .filtro-color-caja {
+        justify-content: space-between;
+    }
+
+    /* 3. Centrar el formulario de registro y permitir deslizamiento (scroll) */
+    #panel-formulario {
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%); /* Lo centra perfectamente en la pantalla */
+        width: 85%;
+        max-height: 80vh; /* Si el celular es pequeño, no se saldrá por arriba/abajo */
+        overflow-y: auto; /* Agrega una barra de desplazamiento interna si es necesario */
+        right: auto;
+    }
+
+    /* 4. Ajustar el panel de perímetros */
+    #panel-perimetro {
+        bottom: 20px;
+        left: 10px;
+        width: calc(100% - 20px); /* Se estira a lo ancho en la parte inferior */
+        max-width: 200px;
+        box-sizing: border-box;
+    }
+
+    /* Reubicar panel de administrador en celular (Esquina superior derecha) */
+    #panel-admin {
+        bottom: 75px; /* Se coloca en la parte de abajo, justo sobre la altura del perímetro */
+        top: auto;    /* Le quitamos la ancla de arriba */
+        left: auto;
+        right: 15px;  /* Lo pegamos a la esquina inferior derecha */
+        width: auto;
+        min-width: 160px;
+        z-index: 1001;
+    }
+
+    /* En celulares horizontales, limitar altura para que no tapen toda la pantalla */
+    #panel-buscador, #panel-perimetro, #panel-admin {
+        max-height: 80vh;
+        overflow-y: auto; /* Agrega scroll interno si la pantalla es muy bajita */
+    }
+
+}
+
+/* =======================================================
+   DISEÑO DEL SWITCH "APLICABLE" (Verde ✔ / Rojo ✖)
+   ======================================================= */
+.switch-aplicable {
+    position: relative;
+    display: inline-block;
+    width: 60px;
+    height: 30px;
+    margin-bottom: 5px;
+}
+
+/* Ocultar el checkbox original */
+.switch-aplicable input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+/* El fondo del interruptor */
+.slider-switch {
+    position: absolute;
+    cursor: pointer;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: #dc3545; /* Rojo por defecto */
+    transition: .4s;
+    border-radius: 34px;
+}
+
+/* El círculo blanco deslizante */
+.slider-switch:before {
+    position: absolute;
+    content: "";
+    height: 22px;
+    width: 22px;
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+    z-index: 2;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+/* El símbolo ✖ cuando está desactivado */
+.slider-switch:after {
+    content: "✖";
+    position: absolute;
+    color: white;
+    font-weight: bold;
+    font-size: 14px;
+    right: 10px;
+    top: 5px;
+    z-index: 1;
+}
+
+/* Cambios cuando está ACTIVADO (Checked) */
+.switch-aplicable input:checked + .slider-switch {
+    background-color: #28a745; /* Verde */
+}
+
+/* Mueve el círculo a la derecha */
+.switch-aplicable input:checked + .slider-switch:before {
+    transform: translateX(30px);
+}
+
+/* Cambia el símbolo a ✔ y lo pone a la izquierda */
+.switch-aplicable input:checked + .slider-switch:after {
+    content: "✔";
+    left: 10px;
+    right: auto;
+}
+
+/* =======================================================
+   ESTADO ACTIVO DE LA BRÚJULA (Presionando Shift)
+   ======================================================= */
+.leaflet-control-rotate.brujula-activa a {
+    background-color: #ff9800 !important; /* Naranja brillante */
+    color: white !important;
+    border: 2px solid #e68a00 !important;
+    transition: background-color 0.2s;
+}
+
+/* =======================================================
+   BOTONES DE MINIMIZAR (SOLO MÓVIL)
+   ======================================================= */
+.btn-minimizar {
+    display: none; /* Oculto en PC por defecto */
+}
+
+@media screen and (max-width: 950px) {
+    .btn-minimizar {
+        display: block;
+        width: 100%;
+        background: #f8f9fa;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        padding: 6px;
+        font-size: 13px;
+        font-weight: bold;
+        text-align: center;
+        margin-bottom: 8px;
+        cursor: pointer;
+        color: #333;
+    }
+    
+    /* Esta clase se encenderá y apagará con JavaScript */
+    .panel-minimizado > *:not(.btn-minimizar) {
+        display: none !important; /* Oculta todo menos el botón */
+    }
+    
+    .panel-minimizado {
+        padding: 8px !important; /* Hace la cajita más pequeña */
+        min-height: auto !important;
+    }
+}

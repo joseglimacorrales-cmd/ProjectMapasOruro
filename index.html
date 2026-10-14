@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mapa de Negocios - Oruro</title>
+
+    <!-- 1. Instalación de Leaflet (Librería del Mapa) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- 2. Instalación de Leaflet Routing Machine (Para el perímetro en las calles) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
+    <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
+    <!-- Plugin para permitir la rotación del mapa -->
+    <script src="https://unpkg.com/leaflet-rotate@0.2.8/dist/leaflet-rotate-src.js"></script>
+    <!-- Plugin para la Ubicación en Tiempo Real (Leaflet Locate) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet.locatecontrol/dist/L.Control.Locate.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/leaflet.locatecontrol/dist/L.Control.Locate.min.js" charset="utf-8"></script>
+    <!-- Plugin para Edición Avanzada de Nodos (Leaflet-Geoman) -->
+    <link rel="stylesheet" href="https://unpkg.com/@geoman-io/leaflet-geoman-free@latest/dist/leaflet-geoman.css" />
+    <script src="https://unpkg.com/@geoman-io/leaflet-geoman-free@latest/dist/leaflet-geoman.min.js"></script>
+
+    <!-- 3. Instalación de Supabase (Conexión a la Base de Datos) -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- Conexión a nuestros propios archivos -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    
+<!-- PANTALLA DE INICIO DE SESIÓN -->
+    <div id="pantalla-login">
+        <div class="caja-login">
+            <h2 style="margin-top: 0; color: #333;">Iniciar Sesión</h2>
+            <input type="text" id="in_usuario" placeholder="Usuario" class="input-login">
+            <div style="position: relative; width: 100%; margin-bottom: 15px;">
+                <input type="password" id="in_pass" placeholder="Contraseña" class="input-login" style="margin-bottom: 0; padding-right: 35px;">
+                <span onclick="togglePassword()" id="icono_ojo" style="position: absolute; right: 10px; top: 10px; cursor: pointer; font-size: 16px;">👁️</span>
+            </div>
+            <button onclick="iniciarSesion()" class="btn-login" id="btn_ingresar">Ingresar</button>
+            <p id="msg_error_login" style="color: red; display: none; font-size: 13px; margin-bottom: 0; margin-top: 10px;">Usuario o contraseña incorrectos</p>
+        </div>
+    </div>
+
+    <!-- Aquí es donde se dibujará el mapa -->
+    <div id="mi_mapa" style="position: absolute; top: 0; bottom: 0; left: 0; right: 0;"></div>
+
+    <!-- Buscador flotante y Filtros -->
+    <div id="panel-buscador">
+        <button class="btn-minimizar" onclick="togglePanel(this)">🔽 Minimizar Buscador</button>
+        <input type="text" id="in_buscar" placeholder="🔍 Buscar (Ej: pizzas marco)..." onkeyup="filtrarMarcadores()">        
+        
+        <!-- Primera fila: Filtro de Rubros -->
+        <div class="fila-filtros" style="margin-bottom: 5px;">
+            <select id="filtro_rubro" onchange="filtrarMarcadores()">
+                <option value="">Todos los rubros</option>
+                <option value="Cafe, Reposteria y Bebidas">Cafe, Repostería y Bebidas</option>
+                <option value="Restaurantes y Gastronomia">Restaurantes y Gastronomía</option>
+                <option value="Comida Rapida y Casual">Comida Rápida y Casual</option>
+                <option value="Bares y Pubs">Bares y Pubs</option>
+                <option value="Retail y Moda">Retail y Moda</option>
+                <option value="Comercio y Markets">Comercio y Markets</option>
+                <option value="Servicios">Servicios</option>
+                <option value="Otros">Otros</option>
+            </select>
+        </div>
+
+        <!-- Segunda fila: Estado y Color -->
+        <div class="fila-filtros">
+            <select id="filtro_aplicable" onchange="filtrarMarcadores()" style="flex: 1; padding: 6px; border: 1px solid #ccc; border-radius: 4px;">
+                <option value="todos">Cualquier estado</option>
+                <option value="si">✅ Aplicables</option>
+                <option value="no">❌ No Aplicables</option>
+            </select>
+
+            <div class="filtro-color-caja">
+                <!-- Usamos un checkbox para activar/desactivar la búsqueda por color -->
+                <input type="checkbox" id="chk_color" title="Activar filtro por color" onchange="filtrarMarcadores()">
+                <select id="filtro_color" onchange="document.getElementById('chk_color').checked = true; filtrarMarcadores()" style="padding: 4px; border-radius: 4px; border: 1px solid #ccc;">
+                    <option value="#ff0000">🔴 Rojo</option>
+                    <option value="#ffff00">🟡 Amarillo</option>
+                    <option value="#008000">🟢 Verde</option>
+                    <option value="#ffa500">🟠 Naranja</option>
+                </select>
+            </div>
+        </div>
+        
+        <!-- Aquí aparecerá el contador dinámico -->
+        <div id="contador_resultados" style="font-size: 13px; font-weight: bold; color: #444; text-align: center; margin-top: 8px; margin-bottom: 5px;"></div>
+
+        <!-- Lista donde aparecerán los resultados -->
+        <ul id="lista_resultados"></ul>
+        <!-- Botón para ver el último negocio -->
+        <button id="btn_ultimo_visto" onclick="irUltimoVisto()" style="display: none;">🎯 Ver último negocio visto</button>
+        <!-- Botón para cerrar sesión -->
+        <button id="btn_cerrar_sesion" onclick="cerrarSesion()" style="display: none; background: #dc3545; color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer; font-size: 13px; margin-top: 5px; font-weight: bold;">🚪 Cerrar Sesión</button>        
+        <!-- Botón general para borrar MIS marcadores -->
+        <button id="btn_borrar_mis_datos" onclick="borrarMisMarcadores()" style="display: none; background: #856404; color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer; font-size: 13px; margin-top: 5px; font-weight: bold;">⚠️ Borrar Mis Marcadores</button>
+    </div>
+    </div>
+
+
+    <!-- Panel de Perímetros y Rutas -->
+    <div id="panel-perimetro">
+        <button class="btn-minimizar" onclick="togglePanel(this)">🔽 Minimizar Trazado</button>
+        <h4 style="margin: 0 0 10px 0; font-size: 15px;">Trazar Perímetro</h4>
+        
+        <button id="btn_dibujar_ruta" onclick="toggleDibujoRuta()">Activar Dibujo</button>
+        
+        <div style="margin-top: 10px; font-size: 14px;">
+            <label>Color del límite:</label>
+            <select id="in_color_perimetro">
+                <option value="#0000ff">🔵 Azul</option>
+                <option value="#ff0000">🔴 Rojo</option>
+                <option value="#008000">🟢 Verde</option>
+                <option value="#ffa500">🟠 Naranja</option>
+                <option value="#800080">🟣 Morado</option>
+            </select>
+        </div>
+
+        <button id="btn_guardar_perimetro" onclick="guardarPerimetro()" style="display:none;">Guardar Perímetro</button>
+        <button id="btn_deshacer_punto" onclick="deshacerUltimoPunto()" style="display:none; background: #ff9800; color: white;">↩️ Deshacer Último Punto</button>
+        <button id="btn_limpiar_ruta" onclick="limpiarRutaActual()" style="display:none; background: #dc3545;">Limpiar Trazos</button>
+        <button id="btn_guardar_edicion_ruta" onclick="guardarEdicionPerimetro()" style="display:none; background: #28a745; color: white; margin-top: 15px;">💾 Guardar Edición</button>
+        <button id="btn_deshacer_edicion_ruta" onclick="deshacerEdicion()" style="display:none; background: #ff9800; color: white;">↩️ Deshacer Último Cambio</button>
+        <button id="btn_cancelar_edicion_ruta" onclick="cancelarEdicionPerimetro()" style="display:none; background: #6c757d; color: white;">❌ Cancelar Edición</button>
+    </div>
+    </div>
+
+    <!-- Panel lateral para registrar negocios (Oculto por defecto) -->
+    <div id="panel-formulario" class="panel-oculto">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="margin: 0;">Registrar Negocio</h3>
+            <span onclick="cerrarPanel()" style="cursor: pointer; font-size: 22px; font-weight: bold; color: #888;">&times;</span>
+        </div>
+        
+        <label>Nombre del negocio:</label>
+        <input type="text" id="in_nombre" placeholder="Ej. Pollo Copacabana">
+
+        <label>Propietario:</label>
+        <input type="text" id="in_propietario" placeholder="Nombre del dueño">
+
+        <label>Rubro:</label>
+        <select id="in_rubro">
+            <option value="Cafe, Reposteria y Bebidas">☕ Cafe, Repostería y Bebidas</option>
+            <option value="Restaurantes y Gastronomia">🍴 Restaurantes y Gastronomía</option>
+            <option value="Comida Rapida y Casual">🍕 Comida Rápida y Casual</option>
+            <option value="Bares y Pubs">🍸 Bares y Pubs</option>
+            <option value="Retail y Moda">👕 Retail y Moda</option>
+            <option value="Comercio y Markets">🛒 Comercio y Markets</option>
+            <option value="Servicios">🛎️ Servicios</option>
+            <option value="Otros">✨ Otros</option>
+        </select>
+
+        <label>Descripción:</label>
+        <textarea id="in_descripcion" rows="2" placeholder="Detalles..."></textarea>
+
+        <label>¿Es Aplicable?</label>
+        <!-- Contenedor del nuevo Switch -->
+        <label class="switch-aplicable">
+            <input type="checkbox" id="in_aplicable" checked>
+            <span class="slider-switch"></span>
+        </label>
+
+        <label>Color del Marcador:</label>
+        <select id="in_color">
+            <option value="#ff0000">🔴 Rojo</option>
+            <option value="#ffff00">🟡 Amarillo</option>
+            <option value="#008000">🟢 Verde</option>
+            <option value="#ffa500">🟠 Naranja</option>
+        </select>
+
+        <label>Foto (Opcional):</label>
+        <input type="file" id="in_foto" accept="image/*">
+        
+        <!-- Contenedor que aparecerá si el negocio ya tiene foto -->
+        <div id="contenedor_foto_actual" style="display: none; margin-top: 5px; text-align: center;">
+            <p style="font-size: 12px; margin: 0 0 5px 0;">Foto actual:</p>
+            <button type="button" onclick="quitarFoto()" style="background: #dc3545; color: white; border: none; padding: 5px; border-radius: 3px; cursor: pointer; width: 100%; font-size: 12px;">🗑️ Quitar fotografía</button>
+        </div>
+
+        <div class="botones">
+            <button onclick="guardarNegocio()" id="btn_guardar">Guardar</button>
+            <button onclick="cerrarPanel()" id="btn_cancelar">Cancelar</button>
+        </div>
+    </div>
+
+    <!-- PANEL DE ADMINISTRACIÓN (Oculto para los clientes, visible para el Admin) -->
+    <div id="panel-admin" style="display: none;">
+        <button class="btn-minimizar" onclick="togglePanel(this)">🔽 Minimizar Admin</button>
+        <h4 style="margin: 0 0 5px 0;">👑 Panel de Administrador</h4>
+        <button onclick="abrirGestorUsuarios()" style="background: #28a745; color: white;">👥 Gestionar Usuarios</button>
+        <button onclick="generarDatosPrueba()" style="background: #17a2b8; color: white;">Añadir 5 Aleatorios</button>
+    </div>
+    <!-- Conexión a nuestro código lógico -->
+    <script src="app.js"></script>
+
+<!-- MODAL DE GESTIÓN DE USUARIOS (Solo Admin) -->
+    <div id="modal-usuarios" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 10000; justify-content: center; align-items: center;">
+        <div style="background: white; padding: 20px; border-radius: 8px; width: 500px; max-height: 80vh; overflow-y: auto;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h3 style="margin: 0;">Gestión de Usuarios</h3>
+                <span onclick="document.getElementById('modal-usuarios').style.display='none'" style="cursor: pointer; font-size: 20px; font-weight: bold; color: #888;">&times;</span>
+            </div>
+            
+            <div style="display: flex; gap: 5px; margin-bottom: 15px;">
+                <input type="text" id="nuevo_user" placeholder="Usuario" style="flex: 1; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                <input type="text" id="nuevo_pass" placeholder="Clave" style="flex: 1; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                <button id="btn_guardar_usuario" onclick="crearNuevoUsuario()" style="background: #007bff; color: white; border: none; padding: 0 15px; cursor: pointer; border-radius: 4px; font-weight: bold;">+ Añadir</button>
+            </div>
+
+            <ul id="lista_usuarios_admin" style="list-style: none; padding: 0; margin: 0;">
+                <!-- Aquí se cargarán los usuarios automáticamente -->
+            </ul>
+        </div>
+    </div>
+
+</body>
+</html>
