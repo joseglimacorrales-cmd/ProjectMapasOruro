@@ -8,6 +8,7 @@ const db = createClient(supabaseUrl, supabaseKey);
 
 // 2. Inicializar el mapa centrado en Oruro (Con Motor de Rotación Mejorado)
 const map = L.map('mi_mapa', {
+    maxZoom: 19,
     rotate: true,           
     bearing: 0,             
     touchRotate: true,         // NUEVO: Enciende el giro con 2 dedos por defecto (Modo Negro)
