@@ -27,7 +27,11 @@ const capaMarcadores = L.markerClusterGroup({
     spiderfyOnMaxZoom: true, // Separa los pines si están en exactamente la misma coordenada
     showCoverageOnHover: false, // Apaga la sombra azul para un diseño más limpio
     zoomToBoundsOnClick: true, // Hace zoom automático al tocar la burbuja de números
-    disableClusteringAtZoom: 19 // NUEVO: Rompe todos los clústeres al llegar al zoom 18 o mayor
+    disableClusteringAtZoom: 18, // Rompe todos los clústeres al llegar al zoom 18 o mayor
+    
+    // --- OPTIMIZACIONES PARA MÓVIL ---
+    removeOutsideVisibleBounds: true, // NUEVO: Borra de la memoria los iconos que no están en pantalla
+    animate: false // NUEVO: Apaga las animaciones de las burbujas al hacer zoom (acelera celulares de gama baja)
 }).addTo(map);
 
 // --- GEOLOCALIZACIÓN: Botón de ubicación en tiempo real ---
