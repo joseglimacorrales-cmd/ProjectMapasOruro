@@ -418,24 +418,28 @@ function cerrarPanel() {
     document.getElementById('contenedor_foto_actual').style.display = 'none';
 }
 
-// 5. Descargar los marcadores al iniciar
+// 5. Descargar los marcadores al iniciar (CON OPTIMIZACIÓN DE ZOOM)
 async function cargarMarcadores() {
     const { data, error } = await db.from('negocios').select('*').eq('dueño_id', usuarioActualId);
     if (!error && data) {
-        listaNegocios = data; // Guardamos la lista en memoria
-        data.forEach(negocio => dibujarMarcador(negocio));
+        listaNegocios = data; 
+        
+        // Verificamos a qué distancia está la cámara (15 es a nivel de cuadras)
+        const nivelZoomActual = map.getZoom();
 
-        // Verificar si teníamos un último visto guardado y si ese negocio aún existe
+        // Solo dibujamos los pines iniciales si estamos viendo la ciudad de cerca
+        if (nivelZoomActual >= 15) {
+            data.forEach(negocio => dibujarMarcador(negocio));
+        }
+
         if (ultimoVistoId && listaNegocios.find(n => n.id == ultimoVistoId)) {
             document.getElementById('btn_ultimo_visto').style.display = 'block';
         } else {
-            // Si el negocio fue eliminado, limpiamos la memoria
             localStorage.removeItem('ultimo_visto_id');
             ultimoVistoId = null;
         }
     }
-    // Actualizar el contador predeterminado al cargar la página
-        document.getElementById('contador_resultados').innerText = `Total encontrados: ${listaNegocios.length}`;
+    document.getElementById('contador_resultados').innerText = `Total encontrados: ${listaNegocios.length}`;
 }
 
 // --- MOTOR DE BÚSQUEDA Y LISTA (CON OPTIMIZACIÓN DE PANTALLA) ---
@@ -1116,5 +1120,24 @@ map.on('moveend', function() {
     // Solo recarga los pines si el usuario ya inició sesión
     if (usuarioActualId) {
         filtrarMarcadores();
+    }
+});
+
+// --- MOTOR DE OPTIMIZACIÓN VISUAL PARA MÓVILES ---
+// Se ejecuta mágicamente cada vez que el usuario suelta la pantalla o termina de hacer zoom
+map.on('moveend', function() {
+    // Si no ha iniciado sesión, no hacemos nada
+    if (!usuarioActualId) return;
+
+    const nivelZoom = map.getZoom();
+    
+    // REGLA 1: Si la cámara está muy lejos (viendo la ciudad entera), limpiamos la pantalla
+    if (nivelZoom < 15) {
+        capaMarcadores.clearLayers();
+        marcadoresDibujados = {}; // Limpiamos la memoria física
+    } 
+    // REGLA 2: Si la cámara se acerca (viendo las calles), recargamos los pines
+    else {
+        filtrarMarcadores(); // Esta función ya dibuja los pines de vuelta
     }
 });
