@@ -23,15 +23,16 @@ const map = L.map('mi_mapa', {
 
 // Restauramos la capa principal, pero ahora como un Clúster Inteligente
 const capaMarcadores = L.markerClusterGroup({
-    maxClusterRadius: 50, // Distancia en píxeles para agrupar pines
-    spiderfyOnMaxZoom: true, // Separa los pines si están en exactamente la misma coordenada
-    showCoverageOnHover: false, // Apaga la sombra azul para un diseño más limpio
-    zoomToBoundsOnClick: true, // Hace zoom automático al tocar la burbuja de números
-    disableClusteringAtZoom: 18, // Rompe todos los clústeres al llegar al zoom 18 o mayor
+    maxClusterRadius: 50, 
+    spiderfyOnMaxZoom: true, 
+    showCoverageOnHover: false, 
+    zoomToBoundsOnClick: true, 
+    disableClusteringAtZoom: 18, 
+    removeOutsideVisibleBounds: true, 
+    animate: false,
     
-    // --- OPTIMIZACIONES PARA MÓVIL ---
-    removeOutsideVisibleBounds: true, // NUEVO: Borra de la memoria los iconos que no están en pantalla
-    animate: false // NUEVO: Apaga las animaciones de las burbujas al hacer zoom (acelera celulares de gama baja)
+    // --- OPTIMIZACIÓN EXTREMA ---
+    chunkedLoading: true // NUEVO: Evita bloqueos de pantalla procesando los iconos por lotes
 }).addTo(map);
 
 // --- GEOLOCALIZACIÓN: Botón de ubicación en tiempo real ---
@@ -67,7 +68,12 @@ if (botonBrujula) {
 // 3. Cargar el diseño de las calles (Esri Street - Tradicional Limpio)
 L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
     maxZoom: 19,
-    attribution: 'Tiles © Esri'
+    attribution: 'Tiles © Esri',
+    
+    // --- OPTIMIZACIONES TÁCTILES ---
+    updateWhenZooming: false, // Pausa la descarga de imágenes mientras pellizcas la pantalla
+    updateWhenIdle: true,     // Reanuda la descarga solo cuando despegas el dedo
+    keepBuffer: 2             // Borra las imágenes de calles lejanas de la RAM más rápido
 }).addTo(map);
 
 console.log("Mapa cargado y conectado a la nube");
