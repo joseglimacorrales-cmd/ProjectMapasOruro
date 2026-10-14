@@ -26,7 +26,8 @@ const capaMarcadores = L.markerClusterGroup({
     maxClusterRadius: 50, // Distancia en píxeles para agrupar pines
     spiderfyOnMaxZoom: true, // Separa los pines si están en exactamente la misma coordenada
     showCoverageOnHover: false, // Apaga la sombra azul para un diseño más limpio
-    zoomToBoundsOnClick: true // Hace zoom automático al tocar la burbuja de números
+    zoomToBoundsOnClick: true, // Hace zoom automático al tocar la burbuja de números
+    disableClusteringAtZoom: 19 // NUEVO: Rompe todos los clústeres al llegar al zoom 18 o mayor
 }).addTo(map);
 
 // --- GEOLOCALIZACIÓN: Botón de ubicación en tiempo real ---
