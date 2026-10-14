@@ -363,30 +363,38 @@ function abrirEdicion(idBuscado) {
     map.closePopup();
 }
 
-// Función para habilitar el reposicionamiento visual del marcador
+// Función para habilitar el reposicionamiento (Mejorado para Celulares)
 function activarMovimiento(id) {
     const marcador = marcadoresDibujados[id];
     if (!marcador) return;
 
-    map.closePopup(); // Cerramos el globo de diálogo
-    marcador.dragging.enable(); // Encendemos el motor de arrastre físico
+    map.closePopup(); 
     
-    // Cambiamos su apariencia para indicar que está en modo "fantasma"
-    marcador.setOpacity(0.6);
+    // Cambiamos su apariencia para indicar que está en modo "fantasma" o selección
+    marcador.setOpacity(0.5);
     
-    // Aviso temporal en pantalla para guiar al usuario
-    alert("📍 Modo Movimiento Activado:\nArrastra el icono hasta su nueva posición y suéltalo para guardar los cambios.");
+    // Aprovechamos la variable "estaRotando" como escudo para bloquear 
+    // que el clic accidental abra el formulario de "Registrar Negocio"
+    estaRotando = true; 
+    
+    // Cambiamos el cursor en PC
+    map.getContainer().style.cursor = 'crosshair';
 
-    // Escuchamos el evento exacto en el que el usuario suelta el clic/dedo
-    marcador.once('dragend', async function(e) {
-        // Apagamos el motor de arrastre y restauramos su color
-        marcador.dragging.disable();
+    alert("📍 MODO REUBICACIÓN:\nToca cualquier parte del mapa donde quieras colocar este negocio.");
+
+    // Usamos 'once' para escuchar UN SOLO clic o toque en el mapa
+    map.once('click', async function(e) {
+        // Restauramos el mapa a la normalidad
+        map.getContainer().style.cursor = '';
         marcador.setOpacity(1);
-
-        // Obtenemos las nuevas coordenadas geográficas
-        const nuevaPosicion = e.target.getLatLng();
         
-        // Guardamos la nueva posición en Supabase exigiendo los datos de vuelta (.select)
+        // Apagamos el escudo protector con un pequeño retraso para evitar clics fantasma
+        setTimeout(() => { estaRotando = false; }, 300);
+
+        // Obtenemos la coordenada exacta donde el usuario tocó la pantalla
+        const nuevaPosicion = e.latlng;
+        
+        // Guardamos en la base de datos
         const { data, error } = await db.from('negocios')
             .update({ latitud: nuevaPosicion.lat, longitud: nuevaPosicion.lng })
             .eq('id', id)
@@ -394,9 +402,9 @@ function activarMovimiento(id) {
 
         if (error) {
             alert("Error al mover el marcador en la nube.");
-            location.reload(); // Revertimos si falla el internet
+            location.reload(); 
         } else if (data && data[0]) {
-            // El motor en tiempo real redibujará el marcador en su sitio final instantáneamente
+            // El motor en tiempo real confirmará y redibujará el marcador
             manejarCambioNegocio({ eventType: 'UPDATE', new: data[0] });
         }
     });
