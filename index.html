@@ -24,6 +24,9 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.js"></script>
+    <!-- Plugin para Visor de Imágenes (Zoom táctil y ratón) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/viewerjs/1.11.6/viewer.min.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/viewerjs/1.11.6/viewer.min.js"></script>
     <!-- 3. Instalación de Supabase (Conexión a la Base de Datos) -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
@@ -54,7 +57,7 @@
     <!-- Buscador flotante y Filtros -->
     <div id="panel-buscador">
         <button class="btn-minimizar" onclick="togglePanel(this)">🔽 Minimizar Buscador</button>
-        <input type="text" id="in_buscar" placeholder="🔍 Buscar (Ej: pizzas marco)..." onkeyup="filtrarMarcadores()">        
+        <input type="text" id="in_buscar" placeholder="🔍 Buscar (Ej: pizzas marco)..." onkeyup="busquedaConFreno()">        
         
         <!-- Primera fila: Filtro de Rubros -->
         <div class="fila-filtros" style="margin-bottom: 5px;">

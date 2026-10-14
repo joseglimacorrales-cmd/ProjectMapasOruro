@@ -9,11 +9,16 @@ const db = createClient(supabaseUrl, supabaseKey);
 // 2. Inicializar el mapa centrado en Oruro (Con Motor de Rotación Mejorado)
 const map = L.map('mi_mapa', {
     maxZoom: 19,
+    
+    // --- OPTIMIZACIONES EXTREMAS PARA MÓVIL ---
+    preferCanvas: true,        // NUEVO: Dibuja todas las líneas y círculos en un solo "lienzo" plano en lugar de usar cientos de elementos HTML.
+    bounceAtZoomLimits: false, // NUEVO: Apaga la animación elástica de "rebote" cuando llegas al zoom máximo o mínimo.
+    
     rotate: true,           
     bearing: 0,             
-    touchRotate: true,         // NUEVO: Enciende el giro con 2 dedos por defecto (Modo Negro)
-    compassBearing: false,     // NUEVO: Apaga totalmente el sensor de Giroscopio
-    shiftKeyMapRotate: true,   // Mantiene la rotación con Shift en PC
+    touchRotate: true,         
+    compassBearing: false,     
+    shiftKeyMapRotate: true,   
     boxZoom: false,            
     rotateControl: {
         closeOnZeroBearing: false, 
@@ -188,6 +193,7 @@ function iniciarTemporizadorInactividad() {
 }
 
 // AL FINALIZAR LA CARGA DEL CÓDIGO, EJECUTAMOS LA VERIFICACIÓN
+autoMinimizarMovil();
 verificarSesion();
 
 
@@ -317,7 +323,8 @@ function dibujarMarcador(negocio) {
         document.getElementById('btn_ultimo_visto').style.display = 'block';
     });
 
-    const imgContenedor = negocio.foto_url ? `<img src="${negocio.foto_url}" style="width: 100%; height: 120px; object-fit: cover; border-radius: 4px; margin-bottom: 5px;">` : '';
+    // La etiqueta ahora llama a abrirVisorProfesional(this)
+    const imgContenedor = negocio.foto_url ? `<img src="${negocio.foto_url}" loading="lazy" onclick="abrirVisorProfesional(this)" style="width: 100%; height: 120px; object-fit: cover; border-radius: 4px; margin-bottom: 5px; cursor: zoom-in;" title="Toca para ver en grande">` : '';
     const estado = negocio.aplicable ? "✅ Aplicable" : "❌ No Aplicable";
     
     const popupHTML = `
@@ -464,6 +471,16 @@ async function cargarMarcadores() {
 }
 
 // --- MOTOR DE BÚSQUEDA Y LISTA ---
+
+let temporizadorBusqueda; // Memoria para el freno del teclado
+
+// NUEVO: Función que pone el freno (Debounce)
+function busquedaConFreno() {
+    clearTimeout(temporizadorBusqueda); // Si el usuario sigue escribiendo, cancela la búsqueda anterior
+    // Espera 400 milisegundos (0.4 segundos) de inactividad antes de buscar
+    temporizadorBusqueda = setTimeout(filtrarMarcadores, 400); 
+}
+
 function filtrarMarcadores() {
     const textoBusqueda = document.getElementById('in_buscar').value.toLowerCase().trim();
     const palabras = textoBusqueda.split(' ').filter(p => p.length > 0); 
@@ -1124,4 +1141,23 @@ async function cargarPerimetros() {
     if (!error && data) {
         data.forEach(perimetro => dibujarUnPerimetro(perimetro));
     }
+}
+
+// --- NUEVO: Motor Profesional de Visor de Imágenes ---
+function abrirVisorProfesional(elementoImagen) {
+    // Creamos el visor dinámicamente sobre la imagen tocada
+    const visor = new Viewer(elementoImagen, {
+        inline: false,        // Pantalla completa flotante
+        navbar: false,        // Ocultar galería inferior
+        title: false,         // Ocultar nombre del archivo
+        button: true,         // Mostrar la "X" para cerrar arriba a la derecha
+        backdrop: true,       // Fondo oscuro
+        zoomRatio: 0.2,       // Velocidad del zoom con rueda del ratón
+        hidden() {
+            visor.destroy();  // Libera la memoria RAM del celular al cerrarlo
+        }
+    });
+    
+    // Lo mostramos inmediatamente
+    visor.show();
 }
