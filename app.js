@@ -8,7 +8,6 @@ const db = createClient(supabaseUrl, supabaseKey);
 
 // 2. Inicializar el mapa centrado en Oruro (Con Motor de Rotación Mejorado)
 const map = L.map('mi_mapa', {
-    preferCanvas: true,
     rotate: true,           
     bearing: 0,             
     touchRotate: true,         // NUEVO: Enciende el giro con 2 dedos por defecto (Modo Negro)
@@ -21,8 +20,13 @@ const map = L.map('mi_mapa', {
     }
 }).setView([-17.9703, -67.1123], 14);
 
-// Restauramos la capa principal que sostiene todos los iconos
-const capaMarcadores = L.layerGroup().addTo(map);
+// Restauramos la capa principal, pero ahora como un Clúster Inteligente
+const capaMarcadores = L.markerClusterGroup({
+    maxClusterRadius: 50, // Distancia en píxeles para agrupar pines
+    spiderfyOnMaxZoom: true, // Separa los pines si están en exactamente la misma coordenada
+    showCoverageOnHover: false, // Apaga la sombra azul para un diseño más limpio
+    zoomToBoundsOnClick: true // Hace zoom automático al tocar la burbuja de números
+}).addTo(map);
 
 // --- GEOLOCALIZACIÓN: Botón de ubicación en tiempo real ---
 L.control.locate({
@@ -419,160 +423,82 @@ function cerrarPanel() {
     document.getElementById('contenedor_foto_actual').style.display = 'none';
 }
 
-// 5. Descargar los marcadores al iniciar (CON OPTIMIZACIÓN DE ZOOM)
+// 5. Descargar los marcadores al iniciar
 async function cargarMarcadores() {
     const { data, error } = await db.from('negocios').select('*').eq('dueño_id', usuarioActualId);
     if (!error && data) {
-        listaNegocios = data; 
-        
-        // Verificamos a qué distancia está la cámara (15 es a nivel de cuadras)
-        const nivelZoomActual = map.getZoom();
+        listaNegocios = data; // Guardamos la lista en memoria
+        data.forEach(negocio => dibujarMarcador(negocio));
 
-        // Solo dibujamos los pines iniciales si estamos viendo la ciudad de cerca
-        if (nivelZoomActual >= 15) {
-            data.forEach(negocio => dibujarMarcador(negocio));
-        }
-
+        // Verificar si teníamos un último visto guardado y si ese negocio aún existe
         if (ultimoVistoId && listaNegocios.find(n => n.id == ultimoVistoId)) {
             document.getElementById('btn_ultimo_visto').style.display = 'block';
         } else {
+            // Si el negocio fue eliminado, limpiamos la memoria
             localStorage.removeItem('ultimo_visto_id');
             ultimoVistoId = null;
         }
     }
-    document.getElementById('contador_resultados').innerText = `Total encontrados: ${listaNegocios.length}`;
+    // Actualizar el contador predeterminado al cargar la página
+        document.getElementById('contador_resultados').innerText = `Total encontrados: ${listaNegocios.length}`;
 }
 
-// 2. Crear Marcador en Memoria (Se ejecuta UNA SOLA VEZ por negocio)
-function crearMarcadorEnMemoria(negocio) {
-    if (marcadoresDibujados[negocio.id]) return marcadoresDibujados[negocio.id];
-
-    let marcador;
-    if (iconosSVG[negocio.forma]) {
-        const configSVG = iconosSVG[negocio.forma];
-        const iconoSvgDinamico = L.divIcon({ 
-            html: `<svg width="28" height="28" viewBox="0 0 24 24" fill="${negocio.color_marcador}" stroke="white" stroke-width="0.8"><path d="${configSVG.path}"/></svg>`, 
-            className: '', iconSize: [28, 28], iconAnchor: configSVG.ancla 
-        });
-        marcador = L.marker([negocio.latitud, negocio.longitud], {icon: iconoSvgDinamico});
-    } else {
-        marcador = L.circleMarker([negocio.latitud, negocio.longitud], { radius: 9, fillColor: negocio.color_marcador, color: "#fff", weight: 2, fillOpacity: 0.9 });
-    }
-
-    marcador.on('popupopen', function() {
-        ultimoVistoId = negocio.id;
-        localStorage.setItem('ultimo_visto_id', negocio.id); 
-        document.getElementById('btn_ultimo_visto').style.display = 'block';
-    });
-
-    const imgContenedor = negocio.foto_url ? `<img src="${negocio.foto_url}" style="width: 100%; height: 120px; object-fit: cover; border-radius: 4px; margin-bottom: 5px;">` : '';
-    const estado = negocio.aplicable ? "✅ Aplicable" : "❌ No Aplicable";
-    
-    const popupHTML = `
-        <div style="min-width: 180px; font-family: sans-serif;">
-            ${imgContenedor}
-            <h3 style="margin: 0 0 5px 0; color: ${negocio.color_marcador};">${negocio.nombre}</h3>
-            <p style="margin: 2px 0; font-size: 13px;"><b>Propietario:</b> ${negocio.propietario}</p>
-            <p style="margin: 2px 0; font-size: 13px;"><b>Rubro:</b> ${negocio.rubro}</p>
-            <p style="margin: 8px 0; font-size: 14px;">${negocio.descripcion}</p>
-            <hr style="border: 0.5px solid #ccc; margin: 5px 0;">
-            <p style="margin: 0 0 10px 0; font-weight: bold; font-size: 14px;">${estado}</p>
-            <div style="display: flex; gap: 5px;">
-                <button onclick="activarMovimiento(${negocio.id})" style="flex:1; background: #17a2b8; color: white; border: none; padding: 5px; border-radius: 3px; cursor: pointer;">📍 Mover</button>
-                <button onclick="abrirEdicion(${negocio.id})" style="flex:1; background: #ffc107; border: none; padding: 5px; border-radius: 3px; cursor: pointer;">✏️ Editar</button>
-                <button onclick="eliminarNegocio(${negocio.id})" style="flex:1; background: #dc3545; color: white; border: none; padding: 5px; border-radius: 3px; cursor: pointer;">🗑️ Borrar</button>
-            </div>
-        </div>
-    `;
-    marcador.bindPopup(popupHTML);
-    marcadoresDibujados[negocio.id] = marcador; // Guardado en RAM, pero apagado
-    return marcador;
-}
-
-// 5. Descargar los marcadores al iniciar (Pre-Carga en RAM)
-async function cargarMarcadores() {
-    const { data, error } = await db.from('negocios').select('*').eq('dueño_id', usuarioActualId);
-    if (!error && data) {
-        listaNegocios = data; 
-        
-        // Fabricamos todos los pines de forma invisible en la memoria
-        data.forEach(negocio => crearMarcadorEnMemoria(negocio));
-
-        if (ultimoVistoId && listaNegocios.find(n => n.id == ultimoVistoId)) {
-            document.getElementById('btn_ultimo_visto').style.display = 'block';
-        } else {
-            localStorage.removeItem('ultimo_visto_id');
-            ultimoVistoId = null;
-        }
-        filtrarMarcadores(); // Muestra solo los visibles
-    }
-}
-
-// --- MOTOR DE RECICLAJE VISUAL Y FILTROS ---
+// --- MOTOR DE BÚSQUEDA Y LISTA ---
 function filtrarMarcadores() {
     const textoBusqueda = document.getElementById('in_buscar').value.toLowerCase().trim();
     const palabras = textoBusqueda.split(' ').filter(p => p.length > 0); 
     const rubroSeleccionado = document.getElementById('filtro_rubro').value;
     const usarColor = document.getElementById('chk_color').checked;
     const colorSeleccionado = document.getElementById('filtro_color').value;
-    const estadoAplicable = document.getElementById('filtro_aplicable').value; 
+    const estadoAplicable = document.getElementById('filtro_aplicable').value; // Leemos el nuevo filtro
     
+    capaMarcadores.clearLayers();
+    marcadoresDibujados = {}; // Limpiamos la memoria
     const listaUL = document.getElementById('lista_resultados');
-    listaUL.innerHTML = ''; 
+    listaUL.innerHTML = ''; // Limpiamos la lista visual
 
-    // Rectángulo de la pantalla con 20% de margen extra (para que no salten de golpe)
-    const limitesPantalla = map.getBounds().pad(0.2);
-    const nivelZoom = map.getZoom();
-    let contadorVisibles = 0;
-
-    listaNegocios.forEach(negocio => {
+    const resultados = listaNegocios.filter(negocio => {
         const contenidoUnido = `${negocio.nombre} ${negocio.rubro} ${negocio.descripcion || ''}`.toLowerCase();
         const coincideTexto = palabras.every(palabra => contenidoUnido.includes(palabra));
         const coincideRubro = (rubroSeleccionado === "") || (negocio.rubro === rubroSeleccionado);
         const coincideColor = (!usarColor) || (negocio.color_marcador === colorSeleccionado);
         
+        // Verificamos la coincidencia del estado aplicable
         let coincideAplicable = true;
         if (estadoAplicable === "si") coincideAplicable = (negocio.aplicable === true);
         if (estadoAplicable === "no") coincideAplicable = (negocio.aplicable === false);
 
-        const cumpleFiltros = coincideTexto && coincideRubro && coincideColor && coincideAplicable;
-        const marcador = marcadoresDibujados[negocio.id];
-        
-        if (!marcador) return;
-
-        // Si cumple, el zoom es mayor a 14 y está en la pantalla -> ENCENDER
-        if (cumpleFiltros && nivelZoom >= 15 && limitesPantalla.contains(marcador.getLatLng())) {
-            if (!capaMarcadores.hasLayer(marcador)) capaMarcadores.addLayer(marcador);
-            contadorVisibles++;
-            
-            if (textoBusqueda.length > 0) {
-                listaUL.innerHTML += `<li class="item-resultado" onclick="enfocarNegocio(${negocio.id})">📍 <b>${negocio.nombre}</b> - ${negocio.rubro}</li>`;
-            }
-        } else {
-            // Si sale de la pantalla o no cumple -> APAGAR (sin borrar de memoria)
-            if (capaMarcadores.hasLayer(marcador)) capaMarcadores.removeLayer(marcador);
-        }
+        return coincideTexto && coincideRubro && coincideColor && coincideAplicable;
     });
     
-    document.getElementById('contador_resultados').innerText = `Total encontrados: ${contadorVisibles}`;
+    // Actualizar el texto del contador en tiempo real
+    document.getElementById('contador_resultados').innerText = `Total encontrados: ${resultados.length}`;
+    
+    resultados.forEach(negocio => {
+        dibujarMarcador(negocio); // Lo dibuja en el mapa
+        
+        // Lo añade a la lista visual si hay texto escrito
+        if (textoBusqueda.length > 0) {
+            listaUL.innerHTML += `<li class="item-resultado" onclick="enfocarNegocio(${negocio.id})">📍 <b>${negocio.nombre}</b> - ${negocio.rubro}</li>`;
+        }
+    });
 }
 
-/// Hace zoom con animación hacia un negocio específico
+/// Hace zoom con animación hacia un negocio específico, abriendo clústeres si es necesario
 function enfocarNegocio(id) {
-    const negocio = listaNegocios.find(n => n.id == id); 
-    if (negocio) {
-        document.getElementById('in_buscar').value = '';
-        document.getElementById('lista_resultados').innerHTML = '';
-        
-        // Volamos a la ubicación
-        map.flyTo([negocio.latitud, negocio.longitud], 18, { animate: true, duration: 1.5 });
-        
-        // Esperamos a aterrizar, forzamos renderizado y abrimos globo
-        setTimeout(() => {
-            filtrarMarcadores(); 
-            const marcadorFisico = marcadoresDibujados[id];
-            if (marcadorFisico) marcadorFisico.openPopup();
-        }, 1600);
+    // Limpiamos el buscador para que se restauren todos los pines al fondo
+    document.getElementById('in_buscar').value = '';
+    document.getElementById('lista_resultados').innerHTML = '';
+    filtrarMarcadores(); 
+
+    // Buscamos el objeto físico en la memoria
+    const marcadorFisico = marcadoresDibujados[id]; 
+    
+    if (marcadorFisico) {
+        // Magia del Clúster: Le pedimos que vuele, separe las burbujas y abra el globo
+        capaMarcadores.zoomToShowLayer(marcadorFisico, function() {
+            marcadorFisico.openPopup();
+        });
     }
 }
 
@@ -1109,7 +1035,7 @@ function manejarCambioNegocio(payload) {
     if (eventType === 'INSERT') {
         if (nuevoDato.dueño_id == usuarioActualId && !marcadoresDibujados[nuevoDato.id]) {
             listaNegocios.push(nuevoDato);
-            crearMarcadorEnMemoria(nuevoDato);
+            dibujarMarcador(nuevoDato);
             filtrarMarcadores();
         }
     } else if (eventType === 'UPDATE') {
@@ -1120,7 +1046,7 @@ function manejarCambioNegocio(payload) {
             if (marcadoresDibujados[nuevoDato.id]) {
                 capaMarcadores.removeLayer(marcadoresDibujados[nuevoDato.id]);
             }
-            crearMarcadorEnMemoria(nuevoDato);
+            dibujarMarcador(nuevoDato);
             filtrarMarcadores();
         }
     } else if (eventType === 'DELETE') {
@@ -1179,31 +1105,3 @@ async function cargarPerimetros() {
         data.forEach(perimetro => dibujarUnPerimetro(perimetro));
     }
 }
-
-// --- MOTOR DINÁMICO DE CARGA VISUAL ---
-// Cada vez que terminas de arrastrar el mapa o hacer zoom, recalcula los pines
-map.on('moveend', function() {
-    // Solo recarga los pines si el usuario ya inició sesión
-    if (usuarioActualId) {
-        filtrarMarcadores();
-    }
-});
-
-// --- MOTOR DE OPTIMIZACIÓN VISUAL PARA MÓVILES ---
-// Se ejecuta mágicamente cada vez que el usuario suelta la pantalla o termina de hacer zoom
-map.on('moveend', function() {
-    // Si no ha iniciado sesión, no hacemos nada
-    if (!usuarioActualId) return;
-
-    const nivelZoom = map.getZoom();
-    
-    // REGLA 1: Si la cámara está muy lejos (viendo la ciudad entera), limpiamos la pantalla
-    if (nivelZoom < 15) {
-        capaMarcadores.clearLayers();
-        marcadoresDibujados = {}; // Limpiamos la memoria física
-    } 
-    // REGLA 2: Si la cámara se acerca (viendo las calles), recargamos los pines
-    else {
-        filtrarMarcadores(); // Esta función ya dibuja los pines de vuelta
-    }
-});

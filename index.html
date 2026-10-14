@@ -20,14 +20,15 @@
     <!-- Plugin para Edición Avanzada de Nodos (Leaflet-Geoman) -->
     <link rel="stylesheet" href="https://unpkg.com/@geoman-io/leaflet-geoman-free@latest/dist/leaflet-geoman.css" />
     <script src="https://unpkg.com/@geoman-io/leaflet-geoman-free@latest/dist/leaflet-geoman.min.js"></script>
-
+    <!-- NUEVO: Plugin para Agrupación de Marcadores (Marker Cluster) estable -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.js"></script>
     <!-- 3. Instalación de Supabase (Conexión a la Base de Datos) -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-    <!-- Conexión a nuestro CSS con Auto-Actualización -->
-    <script>
-        document.write('<link rel="stylesheet" href="style.css?t=' + Date.now() + '">');
-    </script>
+    <!-- Conexión a nuestros propios archivos -->
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
     
@@ -195,10 +196,8 @@
         <button onclick="abrirGestorUsuarios()" style="background: #28a745; color: white;">👥 Gestionar Usuarios</button>
         <button onclick="generarDatosPrueba()" style="background: #17a2b8; color: white;">Añadir 5 Aleatorios</button>
     </div>
-    <!-- Conexión a nuestro código lógico con Auto-Actualización -->
-    <script>
-        document.write('<script src="app.js?t=' + Date.now() + '"><\/script>');
-    </script>
+    <!-- Conexión a nuestro código lógico -->
+    <script src="app.js"></script>
 
 <!-- MODAL DE GESTIÓN DE USUARIOS (Solo Admin) -->
     <div id="modal-usuarios" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 10000; justify-content: center; align-items: center;">
