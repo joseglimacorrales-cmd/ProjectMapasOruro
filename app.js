@@ -8,6 +8,7 @@ const db = createClient(supabaseUrl, supabaseKey);
 
 // 2. Inicializar el mapa centrado en Oruro (Con Motor de Rotación Mejorado)
 const map = L.map('mi_mapa', {
+    preferCanvas: true,
     rotate: true,           
     bearing: 0,             
     touchRotate: true,         // NUEVO: Enciende el giro con 2 dedos por defecto (Modo Negro)
@@ -442,7 +443,72 @@ async function cargarMarcadores() {
     document.getElementById('contador_resultados').innerText = `Total encontrados: ${listaNegocios.length}`;
 }
 
-// --- MOTOR DE BÚSQUEDA Y LISTA (CON OPTIMIZACIÓN DE PANTALLA) ---
+// 2. Crear Marcador en Memoria (Se ejecuta UNA SOLA VEZ por negocio)
+function crearMarcadorEnMemoria(negocio) {
+    if (marcadoresDibujados[negocio.id]) return marcadoresDibujados[negocio.id];
+
+    let marcador;
+    if (iconosSVG[negocio.forma]) {
+        const configSVG = iconosSVG[negocio.forma];
+        const iconoSvgDinamico = L.divIcon({ 
+            html: `<svg width="28" height="28" viewBox="0 0 24 24" fill="${negocio.color_marcador}" stroke="white" stroke-width="0.8"><path d="${configSVG.path}"/></svg>`, 
+            className: '', iconSize: [28, 28], iconAnchor: configSVG.ancla 
+        });
+        marcador = L.marker([negocio.latitud, negocio.longitud], {icon: iconoSvgDinamico});
+    } else {
+        marcador = L.circleMarker([negocio.latitud, negocio.longitud], { radius: 9, fillColor: negocio.color_marcador, color: "#fff", weight: 2, fillOpacity: 0.9 });
+    }
+
+    marcador.on('popupopen', function() {
+        ultimoVistoId = negocio.id;
+        localStorage.setItem('ultimo_visto_id', negocio.id); 
+        document.getElementById('btn_ultimo_visto').style.display = 'block';
+    });
+
+    const imgContenedor = negocio.foto_url ? `<img src="${negocio.foto_url}" style="width: 100%; height: 120px; object-fit: cover; border-radius: 4px; margin-bottom: 5px;">` : '';
+    const estado = negocio.aplicable ? "✅ Aplicable" : "❌ No Aplicable";
+    
+    const popupHTML = `
+        <div style="min-width: 180px; font-family: sans-serif;">
+            ${imgContenedor}
+            <h3 style="margin: 0 0 5px 0; color: ${negocio.color_marcador};">${negocio.nombre}</h3>
+            <p style="margin: 2px 0; font-size: 13px;"><b>Propietario:</b> ${negocio.propietario}</p>
+            <p style="margin: 2px 0; font-size: 13px;"><b>Rubro:</b> ${negocio.rubro}</p>
+            <p style="margin: 8px 0; font-size: 14px;">${negocio.descripcion}</p>
+            <hr style="border: 0.5px solid #ccc; margin: 5px 0;">
+            <p style="margin: 0 0 10px 0; font-weight: bold; font-size: 14px;">${estado}</p>
+            <div style="display: flex; gap: 5px;">
+                <button onclick="activarMovimiento(${negocio.id})" style="flex:1; background: #17a2b8; color: white; border: none; padding: 5px; border-radius: 3px; cursor: pointer;">📍 Mover</button>
+                <button onclick="abrirEdicion(${negocio.id})" style="flex:1; background: #ffc107; border: none; padding: 5px; border-radius: 3px; cursor: pointer;">✏️ Editar</button>
+                <button onclick="eliminarNegocio(${negocio.id})" style="flex:1; background: #dc3545; color: white; border: none; padding: 5px; border-radius: 3px; cursor: pointer;">🗑️ Borrar</button>
+            </div>
+        </div>
+    `;
+    marcador.bindPopup(popupHTML);
+    marcadoresDibujados[negocio.id] = marcador; // Guardado en RAM, pero apagado
+    return marcador;
+}
+
+// 5. Descargar los marcadores al iniciar (Pre-Carga en RAM)
+async function cargarMarcadores() {
+    const { data, error } = await db.from('negocios').select('*').eq('dueño_id', usuarioActualId);
+    if (!error && data) {
+        listaNegocios = data; 
+        
+        // Fabricamos todos los pines de forma invisible en la memoria
+        data.forEach(negocio => crearMarcadorEnMemoria(negocio));
+
+        if (ultimoVistoId && listaNegocios.find(n => n.id == ultimoVistoId)) {
+            document.getElementById('btn_ultimo_visto').style.display = 'block';
+        } else {
+            localStorage.removeItem('ultimo_visto_id');
+            ultimoVistoId = null;
+        }
+        filtrarMarcadores(); // Muestra solo los visibles
+    }
+}
+
+// --- MOTOR DE RECICLAJE VISUAL Y FILTROS ---
 function filtrarMarcadores() {
     const textoBusqueda = document.getElementById('in_buscar').value.toLowerCase().trim();
     const palabras = textoBusqueda.split(' ').filter(p => p.length > 0); 
@@ -451,15 +517,15 @@ function filtrarMarcadores() {
     const colorSeleccionado = document.getElementById('filtro_color').value;
     const estadoAplicable = document.getElementById('filtro_aplicable').value; 
     
-    capaMarcadores.clearLayers();
-    marcadoresDibujados = {}; 
     const listaUL = document.getElementById('lista_resultados');
     listaUL.innerHTML = ''; 
 
-    // NUEVO OPTIMIZADOR: Obtener el "rectángulo" de lo que la cámara está viendo ahora mismo
-    const limitesPantalla = map.getBounds();
+    // Rectángulo de la pantalla con 20% de margen extra (para que no salten de golpe)
+    const limitesPantalla = map.getBounds().pad(0.2);
+    const nivelZoom = map.getZoom();
+    let contadorVisibles = 0;
 
-    const resultados = listaNegocios.filter(negocio => {
+    listaNegocios.forEach(negocio => {
         const contenidoUnido = `${negocio.nombre} ${negocio.rubro} ${negocio.descripcion || ''}`.toLowerCase();
         const coincideTexto = palabras.every(palabra => contenidoUnido.includes(palabra));
         const coincideRubro = (rubroSeleccionado === "") || (negocio.rubro === rubroSeleccionado);
@@ -469,44 +535,44 @@ function filtrarMarcadores() {
         if (estadoAplicable === "si") coincideAplicable = (negocio.aplicable === true);
         if (estadoAplicable === "no") coincideAplicable = (negocio.aplicable === false);
 
-        return coincideTexto && coincideRubro && coincideColor && coincideAplicable;
-    });
-    
-    document.getElementById('contador_resultados').innerText = `Total encontrados: ${resultados.length}`;
-    
-    resultados.forEach(negocio => {
-        // OPTIMIZACIÓN: Solo lo dibujamos si sus coordenadas caen dentro de la pantalla visible
-        const posicionNegocio = L.latLng(negocio.latitud, negocio.longitud);
+        const cumpleFiltros = coincideTexto && coincideRubro && coincideColor && coincideAplicable;
+        const marcador = marcadoresDibujados[negocio.id];
         
-        if (limitesPantalla.contains(posicionNegocio)) {
-            dibujarMarcador(negocio); // Se dibuja porque está en pantalla
-        }
-        
-        if (textoBusqueda.length > 0) {
-            listaUL.innerHTML += `<li class="item-resultado" onclick="enfocarNegocio(${negocio.id})">📍 <b>${negocio.nombre}</b> - ${negocio.rubro}</li>`;
-        }
-    });
-}
+        if (!marcador) return;
 
+        // Si cumple, el zoom es mayor a 14 y está en la pantalla -> ENCENDER
+        if (cumpleFiltros && nivelZoom >= 15 && limitesPantalla.contains(marcador.getLatLng())) {
+            if (!capaMarcadores.hasLayer(marcador)) capaMarcadores.addLayer(marcador);
+            contadorVisibles++;
+            
+            if (textoBusqueda.length > 0) {
+                listaUL.innerHTML += `<li class="item-resultado" onclick="enfocarNegocio(${negocio.id})">📍 <b>${negocio.nombre}</b> - ${negocio.rubro}</li>`;
+            }
+        } else {
+            // Si sale de la pantalla o no cumple -> APAGAR (sin borrar de memoria)
+            if (capaMarcadores.hasLayer(marcador)) capaMarcadores.removeLayer(marcador);
+        }
+    });
+    
+    document.getElementById('contador_resultados').innerText = `Total encontrados: ${contadorVisibles}`;
+}
 
 /// Hace zoom con animación hacia un negocio específico
 function enfocarNegocio(id) {
-    // Usamos '==' para que el texto guardado en la memoria coincida con el número del ID
     const negocio = listaNegocios.find(n => n.id == id); 
-    
-    if (negocio && marcadoresDibujados[id]) {
-        // Hacemos el vuelo con zoom nivel 18
-        map.flyTo([negocio.latitud, negocio.longitud], 18, { animate: true, duration: 1.5 });
-        
-        // Esperamos a que termine el vuelo para abrir la ventana
-        setTimeout(() => {
-            marcadoresDibujados[id].openPopup();
-        }, 1500);
-
-        // Limpiamos el buscador para que no estorbe la vista
+    if (negocio) {
         document.getElementById('in_buscar').value = '';
         document.getElementById('lista_resultados').innerHTML = '';
-        filtrarMarcadores(); // Restaura todos los pines al fondo
+        
+        // Volamos a la ubicación
+        map.flyTo([negocio.latitud, negocio.longitud], 18, { animate: true, duration: 1.5 });
+        
+        // Esperamos a aterrizar, forzamos renderizado y abrimos globo
+        setTimeout(() => {
+            filtrarMarcadores(); 
+            const marcadorFisico = marcadoresDibujados[id];
+            if (marcadorFisico) marcadorFisico.openPopup();
+        }, 1600);
     }
 }
 
@@ -1043,7 +1109,7 @@ function manejarCambioNegocio(payload) {
     if (eventType === 'INSERT') {
         if (nuevoDato.dueño_id == usuarioActualId && !marcadoresDibujados[nuevoDato.id]) {
             listaNegocios.push(nuevoDato);
-            dibujarMarcador(nuevoDato);
+            crearMarcadorEnMemoria(nuevoDato);
             filtrarMarcadores();
         }
     } else if (eventType === 'UPDATE') {
@@ -1054,7 +1120,7 @@ function manejarCambioNegocio(payload) {
             if (marcadoresDibujados[nuevoDato.id]) {
                 capaMarcadores.removeLayer(marcadoresDibujados[nuevoDato.id]);
             }
-            dibujarMarcador(nuevoDato);
+            crearMarcadorEnMemoria(nuevoDato);
             filtrarMarcadores();
         }
     } else if (eventType === 'DELETE') {
