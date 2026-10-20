@@ -11,7 +11,9 @@ const map = L.map('mi_mapa', {
     maxZoom: 19,
     
     // --- OPTIMIZACIONES EXTREMAS PARA MÓVIL ---
-    preferCanvas: false,        // NUEVO: Dibuja todas las líneas y círculos en un solo "lienzo" plano en lugar de usar cientos de elementos HTML.
+    preferCanvas: true,        // NUEVO: Dibuja todas las líneas y círculos en un solo "lienzo" plano en lugar de usar cientos de elementos HTML.
+    zoomAnimation: false,        // 🚨 SOLUCIÓN: Apaga el estiramiento CSS que desfasa las líneas
+    markerZoomAnimation: false,
     bounceAtZoomLimits: false, // NUEVO: Apaga la animación elástica de "rebote" cuando llegas al zoom máximo o mínimo.
     
     rotate: true,           
