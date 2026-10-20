@@ -469,3 +469,8 @@ input, textarea, select {
     left: 8px;
     right: auto;
 }
+
+/* Ocultar los trazados vectoriales durante el pellizco táctil para evitar el desfase visual con leaflet-rotate */
+.leaflet-zoom-anim .leaflet-overlay-pane {
+    visibility: hidden !important;
+}
