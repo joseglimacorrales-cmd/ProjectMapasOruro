@@ -1243,3 +1243,38 @@ function abrirVisorProfesional(elementoImagen) {
     // Lo mostramos inmediatamente
     visor.show();
 }
+
+// --- SISTEMA ANTI-DESFASE PARA MÓVILES (Ocultar durante Zoom/Rotación) ---
+// Detectamos cuando el usuario empieza a hacer zoom (pellizco)
+map.on('zoomstart', function () {
+    const pane = map.getPane('overlayPane');
+    if (pane) {
+        pane.style.opacity = '0';
+        pane.style.transition = 'none'; // Evitar transiciones suaves al ocultar
+    }
+});
+
+// Detectamos cuando el usuario termina el zoom
+map.on('zoomend', function () {
+    const pane = map.getPane('overlayPane');
+    if (pane) {
+        pane.style.opacity = '1';
+    }
+});
+
+// Si tienes problemas de desfase durante la rotación táctil (con dos dedos),
+// también podemos ocultarlo durante ese evento:
+map.on('rotatestart', function () {
+    const pane = map.getPane('overlayPane');
+    if (pane) {
+        pane.style.opacity = '0';
+        pane.style.transition = 'none';
+    }
+});
+
+map.on('rotateend', function () {
+    const pane = map.getPane('overlayPane');
+    if (pane) {
+        pane.style.opacity = '1';
+    }
+});
