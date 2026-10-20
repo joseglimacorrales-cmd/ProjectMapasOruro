@@ -12,8 +12,8 @@ const map = L.map('mi_mapa', {
     
     // --- OPTIMIZACIONES EXTREMAS PARA MÓVIL ---
     preferCanvas: true,        // NUEVO: Dibuja todas las líneas y círculos en un solo "lienzo" plano en lugar de usar cientos de elementos HTML.
-    zoomAnimation: false,        // 🚨 SOLUCIÓN: Apaga el estiramiento CSS que desfasa las líneas
-    markerZoomAnimation: false,
+    zoomAnimation: true,        
+    markerZoomAnimation: true,
     bounceAtZoomLimits: false, // NUEVO: Apaga la animación elástica de "rebote" cuando llegas al zoom máximo o mínimo.
     
     rotate: true,           
@@ -238,7 +238,7 @@ function quitarFoto() {
     document.getElementById('contenedor_foto_actual').style.display = 'none';
 }
 
-// Funcion para guardarNegocio()
+// Funcion para guardarNegocio() con COMPRESIÓN DE IMAGEN AUTOMÁTICA
 async function guardarNegocio() {
     const nombre = document.getElementById('in_nombre').value;
     const propietario = document.getElementById('in_propietario').value;
@@ -248,18 +248,52 @@ async function guardarNegocio() {
     const encuestado = document.getElementById('in_encuestado').checked;
     const color = document.getElementById('in_color').value;
     const forma = mapaRubroIcono[rubro];
-    const archivoFoto = document.getElementById('in_foto').files[0];
+    const archivoFotoOriginal = document.getElementById('in_foto').files[0];
 
     if (!nombre) return alert("Por favor, ponle un nombre al negocio.");
-    document.getElementById('btn_guardar').innerText = "Guardando...";
+    
+    const btnGuardar = document.getElementById('btn_guardar');
+    btnGuardar.innerText = "Comprimiendo y Guardando...";
+    btnGuardar.disabled = true; // Bloquear botón para evitar dobles envíos
 
     let urlFinalFoto = urlFotoActual; 
-    if (archivoFoto) {
-        const nombreArchivo = `${Date.now()}_${archivoFoto.name}`;
-        const { data: uploadData, error: uploadError } = await db.storage.from('fotos').upload(nombreArchivo, archivoFoto);
-        if (!uploadError) {
-            const { data: publicUrlData } = db.storage.from('fotos').getPublicUrl(nombreArchivo);
-            urlFinalFoto = publicUrlData.publicUrl;
+    
+    // --- LÓGICA DE COMPRESIÓN DE IMAGEN ---
+    if (archivoFotoOriginal) {
+        try {
+            // Configuramos la "trituradora" para aplastar la foto
+            const opcionesCompresion = {
+                maxSizeMB: 0.15, // Intentar dejarla en 150 KB
+                maxWidthOrHeight: 1080, // Si es de 4K, la baja a calidad Full HD
+                useWebWorker: true, // Usa procesador en segundo plano para no congelar la app
+                fileType: "image/jpeg" // Las convierte a JPG para ahorrar más espacio
+            };
+
+            // Comprimimos el archivo original
+            console.log(`Foto original: ${(archivoFotoOriginal.size / 1024 / 1024).toFixed(2)} MB`);
+            const fotoComprimida = await imageCompression(archivoFotoOriginal, opcionesCompresion);
+            console.log(`Foto comprimida: ${(fotoComprimida.size / 1024 / 1024).toFixed(2)} MB`);
+
+            // Generamos un nombre seguro para Supabase
+            const nombreArchivo = `${Date.now()}_comprimida.jpg`;
+            
+            // Subimos la foto ya ligera
+            const { data: uploadData, error: uploadError } = await db.storage.from('fotos').upload(nombreArchivo, fotoComprimida);
+            
+            if (!uploadError) {
+                const { data: publicUrlData } = db.storage.from('fotos').getPublicUrl(nombreArchivo);
+                urlFinalFoto = publicUrlData.publicUrl;
+            } else {
+                console.error("Error subiendo foto comprimida:", uploadError);
+                alert("Hubo un error subiendo la foto, pero los datos se guardarán.");
+            }
+        } catch (error) {
+            console.error("Error al comprimir la imagen:", error);
+            // Si la compresión falla, podemos decidir abortar o subir la original (aquí abortamos por seguridad de tu espacio)
+            alert("Error al comprimir la foto. Intenta con otra imagen.");
+            btnGuardar.innerText = "Guardar";
+            btnGuardar.disabled = false;
+            return; 
         }
     }
 
@@ -270,12 +304,34 @@ async function guardarNegocio() {
         dueño_id: usuarioActualId
     };
 
-    if (idEdicion) await db.from('negocios').update(datosGuardar).eq('id', idEdicion);
-    else await db.from('negocios').insert([datosGuardar]);
+    let errorGuardado = null;
 
-    cerrarPanel(); // Solo cerramos la ventana. ¡El servidor se encargará de dibujarlo!
+    if (idEdicion) {
+        // --- PREVENCIÓN DE FOTOS FANTASMA AL EDITAR ---
+        const negocioAntiguo = listaNegocios.find(n => n.id === idEdicion);
+        // Si el negocio ya tenía foto, y la URL final es distinta (porque subiste otra o le diste a quitar)
+        if (negocioAntiguo && negocioAntiguo.foto_url && negocioAntiguo.foto_url !== urlFinalFoto) {
+            const nombreAntiguo = decodeURIComponent(negocioAntiguo.foto_url.substring(negocioAntiguo.foto_url.lastIndexOf('/') + 1));
+            await db.storage.from('fotos').remove([nombreAntiguo]); // Destruimos la foto vieja
+        }
+
+        const { error } = await db.from('negocios').update(datosGuardar).eq('id', idEdicion);
+        errorGuardado = error;
+    } else {
+        const { error } = await db.from('negocios').insert([datosGuardar]);
+        errorGuardado = error;
+    }
+
+    if(errorGuardado) {
+        alert("Error al guardar los datos del negocio.");
+        console.error(errorGuardado);
+    }
+
+    // Restaurar el botón y cerrar
+    btnGuardar.innerText = "Guardar";
+    btnGuardar.disabled = false;
+    cerrarPanel(); 
 }
-
 
 // --- DICCIONARIO DE ICONOS SVG ---
 const iconosSVG = {
@@ -439,9 +495,18 @@ function activarMovimiento(id) {
     });
 }
 
-// Función para eliminar un negocio de la base de datos
+// Función para eliminar un negocio de la base de datos (Ahora limpia la foto)
 async function eliminarNegocio(id) {
     if (confirm("¿Estás seguro de que deseas eliminar este marcador permanentemente?")) {
+        // 1. Primero buscamos si el negocio tenía una foto en la nube
+        const negocio = listaNegocios.find(n => n.id === id);
+        if (negocio && negocio.foto_url) {
+            const nombreArchivo = decodeURIComponent(negocio.foto_url.substring(negocio.foto_url.lastIndexOf('/') + 1));
+            // Disparamos la orden de destrucción al bucket
+            await db.storage.from('fotos').remove([nombreArchivo]);
+        }
+        
+        // 2. Luego borramos los datos de la tabla
         await db.from('negocios').delete().eq('id', id);
         map.closePopup();
     }
