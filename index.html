@@ -74,18 +74,27 @@
             </select>
         </div>
 
-        <!-- Segunda fila: Estado y Color -->
-        <div class="fila-filtros">
+       <!-- Segunda fila: Estado, Entrevista y Color -->
+        <div class="fila-filtros" style="margin-bottom: 5px;">
             <select id="filtro_aplicable" onchange="filtrarMarcadores()" style="flex: 1; padding: 6px; border: 1px solid #ccc; border-radius: 4px;">
                 <option value="todos">Cualquier estado</option>
                 <option value="si">✅ Aplicables</option>
                 <option value="no">❌ No Aplicables</option>
             </select>
 
-            <div class="filtro-color-caja">
-                <!-- Usamos un checkbox para activar/desactivar la búsqueda por color -->
+            <!-- NUEVO: Filtro de Encuestados -->
+            <select id="filtro_encuestado" onchange="filtrarMarcadores()" style="flex: 1; padding: 6px; border: 1px solid #ccc; border-radius: 4px;">
+                <option value="todos">Cualquier encuesta</option>
+                <option value="si">🗣️ Encuestados</option>
+                <option value="no">🤫 No Encuestados</option>
+            </select>
+        </div>
+        
+        <!-- TERCERA FILA: Faltaba envolver el color en este div -->
+        <div class="fila-filtros">
+            <div class="filtro-color-caja" style="width: 100%;">
                 <input type="checkbox" id="chk_color" title="Activar filtro por color" onchange="filtrarMarcadores()">
-                <select id="filtro_color" onchange="document.getElementById('chk_color').checked = true; filtrarMarcadores()" style="padding: 4px; border-radius: 4px; border: 1px solid #ccc;">
+                <select id="filtro_color" onchange="document.getElementById('chk_color').checked = true; filtrarMarcadores()" style="width: 100%; padding: 4px; border-radius: 4px; border: 1px solid #ccc;">
                     <option value="#ff0000">🔴 Rojo</option>
                     <option value="#ffff00">🟡 Amarillo</option>
                     <option value="#008000">🟢 Verde</option>
@@ -164,12 +173,25 @@
         <label>Descripción:</label>
         <textarea id="in_descripcion" rows="2" placeholder="Detalles..."></textarea>
 
-        <label>¿Es Aplicable?</label>
-        <!-- Contenedor del nuevo Switch -->
-        <label class="switch-aplicable">
-            <input type="checkbox" id="in_aplicable" checked>
-            <span class="slider-switch"></span>
-        </label>
+        <div style="display: flex; gap: 10px;">
+            <div style="flex: 1;">
+                <label>¿Es Aplicable?</label>
+                <label class="switch-aplicable">
+                    <input type="checkbox" id="in_aplicable" checked>
+                    <span class="slider-switch"></span>
+                </label>
+            </div>
+            
+            <div style="flex: 1;">
+                <label>¿Encuestado?</label>
+                <!-- NUEVO: Switch de Encuestado -->
+                <label class="switch-encuestado">
+                    <input type="checkbox" id="in_encuestado">
+                    <span class="slider-switch-blue"></span>
+                </label>
+            </div>
+        </div>
+        
 
         <label>Color del Marcador:</label>
         <select id="in_color">

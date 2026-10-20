@@ -11,7 +11,7 @@ const map = L.map('mi_mapa', {
     maxZoom: 19,
     
     // --- OPTIMIZACIONES EXTREMAS PARA MÓVIL ---
-    preferCanvas: true,        // NUEVO: Dibuja todas las líneas y círculos en un solo "lienzo" plano en lugar de usar cientos de elementos HTML.
+    preferCanvas: false,        // NUEVO: Dibuja todas las líneas y círculos en un solo "lienzo" plano en lugar de usar cientos de elementos HTML.
     bounceAtZoomLimits: false, // NUEVO: Apaga la animación elástica de "rebote" cuando llegas al zoom máximo o mínimo.
     
     rotate: true,           
@@ -51,7 +51,8 @@ L.control.locate({
         maxZoom: 18               // Zoom máximo al encontrarte
     },
     keepCurrentZoomLevel: false,  // Permitimos que haga zoom hacia tu posición
-    showPopup: false,             // Apagamos el texto por defecto para un look más limpio
+    showPopup: false,
+    showCompass: false,             // Apagamos el texto por defecto para un look más limpio
     icon: 'leaflet-control-locate-location-arrow', // Icono estándar de GPS
     iconLoading: 'leaflet-control-locate-spinner'  // Icono de carga mientras busca los satélites
 }).addTo(map);
@@ -217,6 +218,7 @@ function limpiarFormulario() {
     document.getElementById('in_propietario').value = '';
     document.getElementById('in_descripcion').value = '';
     document.getElementById('in_aplicable').checked = true;
+    document.getElementById('in_encuestado').checked = false;
     document.getElementById('in_foto').value = '';
 }
 
@@ -241,6 +243,7 @@ async function guardarNegocio() {
     const rubro = document.getElementById('in_rubro').value;
     const descripcion = document.getElementById('in_descripcion').value;
     const aplicable = document.getElementById('in_aplicable').checked;
+    const encuestado = document.getElementById('in_encuestado').checked;
     const color = document.getElementById('in_color').value;
     const forma = mapaRubroIcono[rubro];
     const archivoFoto = document.getElementById('in_foto').files[0];
@@ -260,7 +263,7 @@ async function guardarNegocio() {
 
     const datosGuardar = {
         latitud: latitudClic, longitud: longitudClic, nombre: nombre, propietario: propietario,
-        rubro: rubro, descripcion: descripcion, aplicable: aplicable,
+        rubro: rubro, descripcion: descripcion, aplicable: aplicable, encuestado: encuestado,
         color_marcador: color, forma: forma, foto_url: urlFinalFoto,
         dueño_id: usuarioActualId
     };
@@ -326,6 +329,7 @@ function dibujarMarcador(negocio) {
     // La etiqueta ahora llama a abrirVisorProfesional(this)
     const imgContenedor = negocio.foto_url ? `<img src="${negocio.foto_url}" loading="lazy" onclick="abrirVisorProfesional(this)" style="width: 100%; height: 120px; object-fit: cover; border-radius: 4px; margin-bottom: 5px; cursor: zoom-in;" title="Toca para ver en grande">` : '';
     const estado = negocio.aplicable ? "✅ Aplicable" : "❌ No Aplicable";
+    const estadoEncuesta = negocio.encuestado ? "🗣️ Encuestado" : "🤫 No Encuestado";
     
     const popupHTML = `
         <div style="min-width: 180px; font-family: sans-serif;">
@@ -336,6 +340,7 @@ function dibujarMarcador(negocio) {
             <p style="margin: 8px 0; font-size: 14px;">${negocio.descripcion}</p>
             <hr style="border: 0.5px solid #ccc; margin: 5px 0;">
             <p style="margin: 0 0 10px 0; font-weight: bold; font-size: 14px;">${estado}</p>
+            <p style="margin: 0 0 10px 0; font-weight: bold; font-size: 13px;">${estadoEncuesta}</p>
             
             <div style="display: flex; gap: 5px;">
                 <button onclick="activarMovimiento(${negocio.id})" style="flex:1; background: #17a2b8; color: white; border: none; padding: 5px; border-radius: 3px; cursor: pointer;" title="Mover en el mapa">📍 Mover</button>
@@ -367,6 +372,10 @@ function abrirEdicion(idBuscado) {
     const chkAplicable = document.getElementById('in_aplicable');
     chkAplicable.checked = negocio.aplicable;
     document.getElementById('in_aplicable').checked = negocio.aplicable;
+
+    // NUEVO: Configurar checkbox de encuesta
+    const chkEncuestado = document.getElementById('in_encuestado');
+    chkEncuestado.checked = negocio.encuestado || false;
 
     // Manejar vista de la foto
     document.getElementById('in_foto').value = ''; 
@@ -488,6 +497,7 @@ function filtrarMarcadores() {
     const usarColor = document.getElementById('chk_color').checked;
     const colorSeleccionado = document.getElementById('filtro_color').value;
     const estadoAplicable = document.getElementById('filtro_aplicable').value; // Leemos el nuevo filtro
+    const estadoEncuestado = document.getElementById('filtro_encuestado').value;
     
     capaMarcadores.clearLayers();
     marcadoresDibujados = {}; // Limpiamos la memoria
@@ -505,7 +515,12 @@ function filtrarMarcadores() {
         if (estadoAplicable === "si") coincideAplicable = (negocio.aplicable === true);
         if (estadoAplicable === "no") coincideAplicable = (negocio.aplicable === false);
 
-        return coincideTexto && coincideRubro && coincideColor && coincideAplicable;
+        let coincideEncuestado = true;
+        const esEncuestado = negocio.encuestado || false; 
+        if (estadoEncuestado === "si") coincideEncuestado = (esEncuestado === true);
+        if (estadoEncuestado === "no") coincideEncuestado = (esEncuestado === false);
+
+        return coincideTexto && coincideRubro && coincideColor && coincideAplicable && coincideEncuestado;        
     });
     
     // Actualizar el texto del contador en tiempo real

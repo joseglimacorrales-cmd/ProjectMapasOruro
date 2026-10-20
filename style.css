@@ -30,9 +30,17 @@ input, textarea, select {
     box-shadow: 0 4px 6px rgba(0,0,0,0.3);
     z-index: 1000; /* Asegura que flote sobre el mapa */
     width: 250px;
+    max-height: 90vh; /* 🚨 NUEVO: Limita la altura al 90% de la pantalla */
+    overflow-y: auto; /* 🚨 NUEVO: Activa el scroll si es necesario */
     display: none; /* Inicia oculto */
     flex-direction: column;
     gap: 10px;
+}
+
+#panel-formulario textarea {
+    min-height: 60px; /* Fuerza una altura mínima visible de unas 3 líneas */
+    flex-shrink: 0;   /* Prohíbe que el panel lo aplaste para ahorrar espacio */
+    resize: vertical; /* Permite que el usuario lo pueda estirar hacia abajo si necesita escribir mucho */
 }
 
 #panel-formulario label {
@@ -402,4 +410,62 @@ input, textarea, select {
         padding: 8px !important; /* Hace la cajita más pequeña */
         min-height: auto !important;
     }
+}
+
+
+/* =======================================================
+   DISEÑO DEL SWITCH "ENTREVISTADO" (Azul 🗣️ / Gris 🤫)
+   ======================================================= */
+.switch-encuestado {
+    position: relative;
+    display: inline-block;
+    width: 60px;
+    height: 30px;
+    margin-bottom: 5px;
+}
+.switch-encuestado input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+.slider-switch-blue {
+    position: absolute;
+    cursor: pointer;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: #6c757d; /* Gris oscuro por defecto */
+    transition: .4s;
+    border-radius: 34px;
+}
+.slider-switch-blue:before {
+    position: absolute;
+    content: "";
+    height: 22px;
+    width: 22px;
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+    z-index: 2;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+.slider-switch-blue:after {
+    content: "🤫";
+    position: absolute;
+    color: white;
+    font-size: 14px;
+    right: 8px;
+    top: 5px;
+    z-index: 1;
+}
+.switch-encuestado input:checked + .slider-switch-blue {
+    background-color: #007bff; /* Azul */
+}
+.switch-encuestado input:checked + .slider-switch-blue:before {
+    transform: translateX(30px);
+}
+.switch-encuestado input:checked + .slider-switch-blue:after {
+    content: "🗣️";
+    left: 8px;
+    right: auto;
 }
